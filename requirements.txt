@@ -1,0 +1,10 @@
+streamlit
+pymupdf
+jinja2
+weasyprint
+python-dotenv
+openai
+google-genai
+argostranslate
+pytesseract
+Pillow

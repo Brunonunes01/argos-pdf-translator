@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>{{ book.filename }} - PDF Bilingual Book Generator</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+
+    body {
+      color: #1f2933;
+      font-family: "DejaVu Serif", Georgia, serif;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+
+    .book-header {
+      border-bottom: 1px solid #b8c2cc;
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+    }
+
+    .book-title {
+      font-size: 18pt;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .page {
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .page:last-child {
+      break-after: auto;
+    }
+
+    .page-title {
+      color: #334e68;
+      font-family: "DejaVu Sans", Arial, sans-serif;
+      font-size: 13pt;
+      margin: 18px 0 12px;
+    }
+
+    .block {
+      border-bottom: 1px solid #d9e2ec;
+      margin-bottom: 13px;
+      padding-bottom: 12px;
+      break-inside: avoid;
+    }
+
+    .label {
+      color: #52606d;
+      font-family: "DejaVu Sans", Arial, sans-serif;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: 0;
+      margin: 0 0 4px;
+      text-transform: uppercase;
+    }
+
+    .en {
+      font-weight: normal;
+      margin: 0 0 8px;
+    }
+
+    .pt {
+      color: #243b53;
+      margin: 6px 0 0;
+    }
+
+    @media print {
+      .block {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="book-header">
+    <h1 class="book-title">{{ book.filename }}</h1>
+  </header>
+
+  {% for page in pages %}
+    <section class="page">
+      <h2 class="page-title">Pagina {{ page.number }}</h2>
+      {% for chunk in page.chunks %}
+        <article class="block">
+          <div class="label">Original</div>
+          <div class="en">{{ chunk.original_text }}</div>
+          <div class="label">Traducao</div>
+          <div class="pt">{{ chunk.translated_text or "[Traducao pendente]" }}</div>
+        </article>
+      {% endfor %}
+    </section>
+  {% endfor %}
+</body>
+</html>
