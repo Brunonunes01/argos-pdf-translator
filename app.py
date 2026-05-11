@@ -7,6 +7,8 @@ import streamlit as st
 
 from src.bilingual_service import BilingualService
 from src.config import load_environment
+from src.ebook_converter import EbookConversionError, EbookConverter
+from src.filename_utils import build_safe_filename
 
 
 st.set_page_config(page_title="PDF Bilingual Book Generator", layout="wide")
@@ -37,6 +39,73 @@ def store_log(message: str) -> None:
 
 def read_file(path: Path) -> bytes:
     return path.read_bytes()
+
+
+def save_uploaded_conversion_file(uploaded_file) -> Path:
+    uploads_dir = Path("data") / "conversions" / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = build_safe_filename(uploaded_file.name, default_stem="conversao")
+    path = uploads_dir / safe_name
+    path.write_bytes(uploaded_file.getbuffer())
+    return path
+
+
+def render_converter_page() -> None:
+    st.title("Conversor de eBook e PDF")
+    st.caption("Converta EPUB para PDF ou gere um EPUB simples a partir do texto extraido de um PDF.")
+
+    converter = EbookConverter(Path("data") / "conversions" / "outputs")
+    conversion_type = st.segmented_control(
+        "Tipo de conversao",
+        ["EPUB para PDF", "PDF para EPUB"],
+        default="EPUB para PDF",
+    )
+
+    if conversion_type == "EPUB para PDF":
+        uploaded_file = st.file_uploader("Selecione um arquivo EPUB", type=["epub"])
+        st.caption("A conversao preserva texto, imagens e estilos simples quando o EPUB esta bem estruturado.")
+    else:
+        uploaded_file = st.file_uploader("Selecione um arquivo PDF", type=["pdf"])
+        st.caption("O EPUB gerado e linear: uma secao por pagina com o texto extraido do PDF.")
+
+    if not uploaded_file:
+        st.info("Selecione um arquivo para converter.")
+        return
+
+    source_path = save_uploaded_conversion_file(uploaded_file)
+    st.metric("Arquivo", uploaded_file.name)
+
+    if st.button("Converter", type="primary"):
+        try:
+            if conversion_type == "EPUB para PDF":
+                result = converter.epub_to_pdf(source_path)
+            else:
+                result = converter.pdf_to_epub(source_path)
+            st.session_state.conversion_result_path = str(result.path)
+            st.session_state.conversion_result_name = result.filename
+            st.session_state.conversion_result_mime = result.mime
+            st.success(f"Arquivo gerado: {result.path}")
+        except EbookConversionError as exc:
+            st.error(str(exc))
+        except Exception as exc:
+            st.error(f"Falha ao converter arquivo: {exc}")
+
+    result_path_value = st.session_state.get("conversion_result_path")
+    if result_path_value:
+        result_path = Path(result_path_value)
+        if result_path.exists():
+            st.download_button(
+                "Baixar arquivo convertido",
+                data=read_file(result_path),
+                file_name=st.session_state.get("conversion_result_name", result_path.name),
+                mime=st.session_state.get("conversion_result_mime", "application/octet-stream"),
+            )
+
+    with st.expander("Limites atuais"):
+        st.write(
+            "MOBI/AZW ainda nao foram adicionados porque normalmente exigem Calibre ou outra ferramenta externa. "
+            "PDF para EPUB tambem nao reconstrui capitulos, notas e layout complexo; ele extrai texto e monta um EPUB legivel."
+        )
 
 
 def render_export_section(
@@ -117,6 +186,17 @@ def render_export_section(
 service = get_service("argos-ui-safe-v1")
 has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
 has_gemini_key = bool(os.getenv("GEMINI_API_KEY"))
+
+with st.sidebar:
+    app_section = st.radio(
+        "Tela",
+        ["Livro bilingue", "Conversor"],
+        index=0,
+    )
+
+if app_section == "Conversor":
+    render_converter_page()
+    st.stop()
 
 st.title("PDF Bilingual Book Generator")
 st.caption("Traducao local com Argos, OCR para PDFs escaneados e exportacao bilingue para estudo.")

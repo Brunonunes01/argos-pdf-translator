@@ -9,6 +9,7 @@ from typing import Callable
 
 from .config import DB_PATH, OUTPUTS_DIR, TEMPLATES_DIR, UPLOADS_DIR, ensure_directories
 from .database import Database
+from .filename_utils import build_safe_filename, normalize_original_name
 from .html_renderer import HTMLRenderer
 from .models import BilingualChunk, Book
 from .pdf_extractor import PDFExtractor
@@ -36,15 +37,21 @@ class BilingualService:
         file_hash = hashlib.sha256(file_bytes).hexdigest()
         existing_book = self.db.get_book_by_hash(file_hash)
         book_id = existing_book.id if existing_book else str(uuid.uuid4())
-        safe_name = Path(uploaded_file.name).name
-        pdf_path = UPLOADS_DIR / f"{book_id}_{safe_name}"
+        original_name = normalize_original_name(uploaded_file.name, "livro.pdf")
+        storage_name = build_safe_filename(
+            original_name,
+            prefix=book_id,
+            default_stem="livro",
+            default_suffix=".pdf",
+        )
+        pdf_path = UPLOADS_DIR / storage_name
 
         if not pdf_path.exists():
             with pdf_path.open("wb") as target:
                 target.write(file_bytes)
 
         total_pages = self.extractor.count_pages(str(pdf_path))
-        book = self.db.upsert_book(book_id, safe_name, file_hash, total_pages)
+        book = self.db.upsert_book(book_id, original_name, file_hash, total_pages)
         return book, pdf_path
 
     def build_translator(self, translator_name: str) -> Translator:
